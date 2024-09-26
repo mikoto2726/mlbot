@@ -1,0 +1,50 @@
+# numpy: 数値計算のための基盤ライブラリ
+numpy
+
+# pandas: データ操作と分析のためのツール
+pandas
+
+# scikit-learn: 機械学習アルゴリズムのためのライブラリ
+scikit-learn
+
+# matplotlib: グラフ描画ライブラリ
+matplotlib
+
+# seaborn: 統計データの可視化ライブラリ
+seaborn
+
+# tensorflow: オープンソースの機械学習プラットフォーム
+tensorflow
+
+# keras: 深層学習のための高レベルAPI（TensorFlowに統合済み）
+keras
+
+# torch: PyTorch、オープンソースの機械学習フレームワーク
+torch
+
+# torchvision: PyTorch用の画像データセットとモデル
+torchvision
+
+# xgboost: 勾配ブースティングのためのライブラリ
+xgboost
+
+# lightgbm: 高速な勾配ブースティングフレームワーク
+lightgbm
+
+# statsmodels: 統計モデルと計量経済学のためのライブラリ
+statsmodels
+
+# jupyterlab: Jupyterノートブックの次世代Webベースインターフェイス
+jupyterlab
+
+# scipy: 科学計算のためのライブラリ
+scipy
+
+# ccxt: 暗号通貨取引所の統合ライブラリ
+ccxt
+
+# sweetviz: データの探索的データ解析（EDA）のためのライブラリ
+sweetviz
+
+
+backtrader
