@@ -3,18 +3,17 @@
 # 環境構築
 ## mlbotというフォルダをwsl上に作成
 ## mlbotという仮想環境を作成する
-pythonの最新バージョンが3.12.6なので 
-```
-conda create -n mlbot python=3.12.6
-```
-で作成しようとしたが対応していなかった
-
-conda serch pythonで利用可能なバージョンを確信したところ3.12.5が最新だったので
 ```
 conda create -n mlbot python=3.12.5
 ```
 で作成  
 
+仮想環境mlbotをアクティベートする
+
+```
+conda activate mlbot
+
+```
 現在の仮想環境を確認
 ```
 ~/mlbot > conda info -e                                     py mlbot
@@ -23,6 +22,8 @@ conda create -n mlbot python=3.12.5
 base                     /home/iniad/miniconda3
 mlbot
 ```
+
+
 インストールされているパッケージを確認
 ```
 ~/mlbot > conda list                                        py mlbot
@@ -55,7 +56,9 @@ zlib                      1.2.13               h5eee18b_1
 ```
 
 ## jupyter labのインストール
-```conda install -c conda-forge jupyterlab```
+```
+conda install -c conda-forge jupyterlab
+```
 -c conda-forge は、conda-forge チャンネルからパッケージをインストールするためのオプションです。最新のバージョンやより多くのパッケージが提供されています。
 
 インストールされたパッケージを確認
