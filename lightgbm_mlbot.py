@@ -1,3 +1,18 @@
+# ---
+# jupyter:
+#   jupytext:
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.16.4
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
+# ---
+
+# %%
 # 必要なライブラリのインポート
 import numpy as np
 import pandas as pd
@@ -22,26 +37,26 @@ import joblib
 import optuna
 warnings.filterwarnings('ignore')
 
+# %% [markdown]
+# # データ取得
 
-
-
-
+# %%
 # データの読み込みと文字列として保存されている日時情報を日時型のデータに変換
 df = pd.read_csv('btc_usdt_1h_2018_to_now.csv')
 df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-
+# %%
 # タイムスタンプでソートとインデックスのリセット
 df.sort_values('timestamp', inplace=True)#inplaceで新しいdataframeを作成せず元のを変更
 # 列をインデックス（行ラベル）として設定
 df.set_index('timestamp', inplace=True)
 
-
+# %%
 # 欠損値処理
 df.fillna(method='ffill', inplace=True)
 df.dropna(inplace=True)
 
-
+# %%
 # 特徴量エンジニアリング
 # 移動平均線の計算
 df['SMA_10'] = df['close'].rolling(window=10).mean()
@@ -131,25 +146,25 @@ df['%D'] = df['%K'].rolling(window=3).mean()
 df['Volatility'] = df['close'].rolling(window=10).std()
 df['Volume_Change'] = df['volume'].pct_change()
 
-
+# %%
 # 目標変数の作成
 df['return'] = df['close'].pct_change().shift(-1) #前の行とのパーセンテージの変化
 df['target'] = (df['return'] > 0).astype(int) #価格が上昇したらTrue
 
-
+# %%
 # 欠損値の削除
 df.dropna(subset=['target'], inplace=True)
 
-
+# %%
 # 特徴量と目標変数の定義
 features = ['open', 'high', 'low', 'close', 'volume', 'SMA_10', 'SMA_30','SMA_100', 'SMA_200',
             'EMA_20',  'EMA_200', 'RSI_14', 'MACD', 'Signal_Line',
-            'Upper_Band', 'Lower_Band', 'ATR_14', 'ADX_14', 'CCI_14', 'OBV', '%K', '%D', 'hour', 'day_of_week'] + [f'lag_{lag}' for lag in range(1,6)]
+            'Upper_Band', 'Lower_Band', 'ATR_14', 'ADX_14', 'CCI_14', 'OBV', '%K', '%D', 'hour', 'day_of_week', 'Volatility', 'Volume_Change'] + [f'lag_{lag}' for lag in range(1,6)]
 
 X = df[features]
 y = df['target'] #価格が上昇すれば1下落すれば0
 
-
+# %%
 # データの分割（時間ベースでの分割）
 split_date = '2024-01-01'
 X_train = X[X.index < split_date]
@@ -157,57 +172,55 @@ X_test = X[X.index >= split_date]
 y_train = y[y.index < split_date]
 y_test = y[y.index >= split_date]
 
-
+# %%
 # LightGBM用のデータセットを作成
-lgb_train = lgb.Dataset(X_train, y_train)  # 訓練データをLightGBMのデータセット形式に変換
-lgb_eval = lgb.Dataset(X_test, y_test, reference=lgb_train)  # 評価データも同様に変換し、訓練データを基準に指定
+lgb_train = lgb.Dataset(X_train, y_train)
+lgb_eval = lgb.Dataset(X_test, y_test, reference=lgb_train)
 
 # パラメータの設定
 params = {
-    'objective': 'binary',  # 目的関数を2値分類問題に設定
-    'metric': 'binary_logloss',  # モデル評価の指標としてbinary_loglossを指定
-    'num_iterations': 10000,  # 最大のイテレーション数を指定（モデルの学習を行う繰り返し数）
-    'verbosity': -1,  # ログ出力の詳細度を制御、-1で詳細な出力を抑制
+    'objective': 'binary',
+    'metric': 'binary_logloss',
+    'num_iterations' : 10000,
+    'verbosity': -1,
 }
 
 # モデルの訓練
 print('Starting training...')
-gbm = lgb.train(
-    params,  # 指定したパラメータでモデルを訓練
-    lgb_train,  # 訓練用データセット
-    valid_sets=[lgb_train, lgb_eval],  # 訓練と評価データセットを指定し、途中経過をモニタリング
-    num_boost_round=1000,  # 最大1000回のブースティングを実行
-    callbacks=[lgb.early_stopping(stopping_rounds=50)]  # 50回連続で改善が見られない場合に訓練を早期終了
-)
+gbm = lgb.train(params,
+                lgb_train,
+                valid_sets=[lgb_train, lgb_eval],
+                num_boost_round=1000,
+                callbacks=[lgb.early_stopping(stopping_rounds=50)])
 
 # 予測の実行
 print('Making predictions...')
-y_pred_prob = gbm.predict(X_test, num_iteration=gbm.best_iteration)  # テストデータに対する予測確率を計算
-y_pred = (y_pred_prob > 0.5).astype(int)  # 確率が0.5を超えたものを1（正例）、それ以下を0（負例）として2値分類
+y_pred_prob = gbm.predict(X_test, num_iteration=gbm.best_iteration)
+y_pred = (y_pred_prob > 0.5).astype(int)
 
-
+# %%
 # 予測結果をCSVファイルに保存
 np.savetxt("lgb_pred.csv", y_pred, delimiter=",")
 
-
+# %%
 # モデルの評価
 accuracy = accuracy_score(y_test, y_pred)
 print('Accuracy:', accuracy)
 print('Classification Report:')
 print(classification_report(y_test, y_pred))
 
-
+# %%
 auc = roc_auc_score(y_test, y_pred_prob)
 print('ROC AUC Score:', auc)
 
-
+# %%
 cm = confusion_matrix(y_test, y_pred)
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
 plt.xlabel('Predicted')
 plt.ylabel('True')
 plt.show()
 
-
+# %%
 precision, recall, thresholds = precision_recall_curve(y_test, y_pred_prob)
 plt.plot(recall, precision)
 plt.xlabel('Recall')
@@ -215,14 +228,14 @@ plt.ylabel('Precision')
 plt.title('Precision-Recall curve')
 plt.show()
 
-
+# %%
 lgb_model = lgb.LGBMClassifier(objective='binary', metric='binary_logloss', verbosity=-1)
 scores = cross_val_score(lgb_model, X_train, y_train, cv=5, scoring='accuracy')
 print("Cross-validated accuracy:", scores.mean())
 
-
+# %%
 # 初期設定
-initial_capital = 1000000
+initial_capital = 1000
 capital = initial_capital  # 初期資金をリセット
 capital_history = []
 positions = []
@@ -326,27 +339,29 @@ plt.tight_layout()
 plt.show()
 
 
+# %%
 # リターン計算やポジションサイズの確認
 print("Return:", ret)
 
-
+# %%
 # リターン分布のプロット
 plt.figure(figsize=(12,6))
 sns.histplot(backtest_results['Return'], bins=50, kde=True)
 plt.title('Returns Distribution')
 plt.show()
 
-
+# %%
 backtest_results['Return']
 
-
+# %%
 # モデルの保存
 gbm.save_model('lightgbm_btc_model.txt')
 
 
+# %% [markdown]
+# # ハイパーパラメータチューニング
 
-
-
+# %%
 # Optunaによるハイパーパラメータ調整
 def objective(trial):
     param = {
@@ -372,17 +387,18 @@ def objective(trial):
     return np.mean(scores)
 
 
+# %%
 # Optunaによる最適化
 study = optuna.create_study(direction='maximize')
 study.optimize(objective, n_trials=20)
 best_params = study.best_params
 
-
+# %%
 # 最適なパラメータでモデルを再学習
 best_model = lgb.LGBMClassifier(**best_params)
 best_model.fit(X_train, y_train)
 
-
+# %%
 # 評価
 y_pred = best_model.predict(X_test)
 tune_accuracy = accuracy_score(y_test, y_pred)
@@ -392,13 +408,14 @@ print(f'Accuracy: {tune_accuracy:.4f}, ROC AUC: {roc_auc:.4f}')
 print(classification_report(y_test, y_pred))
 
 
+# %%
 cm = confusion_matrix(y_test, y_pred)
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
 plt.xlabel('Predicted')
 plt.ylabel('True')
 plt.show()
 
-
+# %%
 precision, recall, thresholds = precision_recall_curve(y_test, y_pred_prob)
 plt.plot(recall, precision)
 plt.xlabel('Recall')
@@ -406,12 +423,12 @@ plt.ylabel('Precision')
 plt.title('Precision-Recall curve')
 plt.show()
 
-
+# %%
 lgb_model = lgb.LGBMClassifier(objective='binary', metric='binary_logloss', verbosity=-1)
 scores = cross_val_score(lgb_model, X_train, y_train, cv=5, scoring='accuracy')
 print("Cross-validated accuracy:", scores.mean())
 
-
+# %%
 # バックテストの実行
 # 取引シミュレーション
 tune_capital = initial_capital  # 初期資金をリセット
@@ -490,28 +507,28 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-
+# %%
 # リターン分布のプロット
 plt.figure(figsize=(12,6))
 sns.histplot(backtest_results['Return'], bins=50, kde=True)
 plt.title('Returns Distribution (Optimized Model)')
 plt.show()
 
-
+# %%
 backtest_results['Return']
 
-
+# %%
 # 最適化されたモデルの保存
 joblib.dump(best_model, 'lightgbm_btc_model_optimized.pkl')
 
 print("モデルを保存しました: lightgbm_btc_model_optimized.pkl")
 
-
+# %%
 # 特徴量の重要度をプロット
 lgb.plot_importance(best_model, max_num_features=1000)
 plt.show()
 
-
+# %%
 # 保存するデータ
 timeframe = '1h' 
 data = {'時間足':[timeframe], 'レバレッジ':[leverage], '特徴量' : [features], 'テスト開始時期' : [split_date], '精度' : [accuracy], 
@@ -526,19 +543,18 @@ file_exists = os.path.isfile('result.csv')
 # CSVファイルに追記、ファイルが既に存在する場合はヘッダーを追加しない
 df_result.to_csv('result.csv', mode='a', header=not file_exists, index=False)
 
-
+# %%
 print('Final capital:', capital)
 print('Final tune_capital:', tune_capital)
 
-
+# %%
 # 予測結果をCSVファイルに保存
 np.savetxt("lgb_tuned_pred.csv", y_pred, delimiter=",")
 
-
+# %%
 y_pred
 
-
+# %%
 y_test
 
-
-
+# %%
